@@ -1,0 +1,12 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💡 功能建议和需求
+    url: https://github.com/singleton-altman/docker_copilot_andriod_app/issues/new?template=feature_request.md
+    about: 提出新功能建议或功能需求
+  - name: 🐛 Bug 反馈
+    url: https://github.com/singleton-altman/docker_copilot_andriod_app/issues/new?template=bug_report.md
+    about: 报告应用中的 Bug 或问题
+  - name: 💬 一般建议
+    url: https://github.com/singleton-altman/docker_copilot_andriod_app/issues/new?template=suggestion.md
+    about: 提出改进建议或想法
+
