@@ -1,4 +1,8 @@
 name: Build and Release APK
+
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
     inputs:
@@ -51,14 +55,16 @@ jobs:
           flutter pub get
           flutter build apk --release
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Create or update GitHub Release
         env:
-          GITHUB_TOKEN: ${{ secrets.PERSON_ACCESS_TOKEN }}
-        with:
-          tag_name: ${{ steps.release_meta.outputs.tag_name }}
-          name: ${{ steps.release_meta.outputs.release_name }}
-          target_commitish: ${{ github.sha }}
-          draft: false
-          prerelease: false
-          files: ./docker_copilot/build/app/outputs/flutter-apk/app-release.apk
+          TAG: ${{ steps.release_meta.outputs.tag_name }}
+          NAME: ${{ steps.release_meta.outputs.release_name }}
+        run: |
+          set -e
+          ASSET=./docker_copilot/build/app/outputs/flutter-apk/app-release.apk
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ASSET" --clobber
+            gh release edit "$TAG" --title "$NAME"
+          else
+            gh release create "$TAG" "$ASSET" --title "$NAME" --target "${{ github.sha }}"
+          fi

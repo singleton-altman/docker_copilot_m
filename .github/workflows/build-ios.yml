@@ -71,12 +71,16 @@ jobs:
           cp -R "$APP_PATH" "$PKG_DIR/Payload/"
           cd "$PKG_DIR" && zip -qr "$RUNNER_TEMP/DCPilot-unsigned.ipa" Payload
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.release_meta.outputs.tag_name }}
-          name: ${{ steps.release_meta.outputs.release_name }}
-          target_commitish: ${{ github.sha }}
-          draft: false
-          prerelease: false
-          files: ${{ runner.temp }}/DCPilot-unsigned.ipa
+      - name: Create or update GitHub Release
+        env:
+          TAG: ${{ steps.release_meta.outputs.tag_name }}
+          NAME: ${{ steps.release_meta.outputs.release_name }}
+        run: |
+          set -e
+          ASSET="${{ runner.temp }}/DCPilot-unsigned.ipa"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ASSET" --clobber
+            gh release edit "$TAG" --title "$NAME"
+          else
+            gh release create "$TAG" "$ASSET" --title "$NAME" --target "${{ github.sha }}"
+          fi
