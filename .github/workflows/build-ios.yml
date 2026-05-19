@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    if: github.repository == 'singleton-altman/docker_copilot_andriod_app'
+    if: github.repository == 'singleton-altman/docker_copilot_m'
     runs-on: macos-latest
 
     steps:
