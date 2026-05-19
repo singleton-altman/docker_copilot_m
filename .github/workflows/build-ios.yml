@@ -1,0 +1,82 @@
+name: Build and Release iOS
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.repository == 'singleton-altman/docker_copilot_andriod_app'
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout iOS repository
+        uses: actions/checkout@v4
+        with:
+          repository: singleton-altman/docker_copilot_app_swift
+          token: ${{ secrets.PERSON_ACCESS_TOKEN }}
+          path: docker_copilot_app_swift
+
+      - name: Resolve release name
+        id: release_meta
+        working-directory: docker_copilot_app_swift
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set +x
+          VERSION=$(grep -m1 'MARKETING_VERSION =' docker_copilot_app_swift.xcodeproj/project.pbxproj | sed 's/.*= \(.*\);/\1/' | tr -d ' ')
+          RELEASE_NAME="${VERSION}-ios-$(date -u +%Y%m%d)"
+          echo "release_name=${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
+          echo "app_version=${VERSION}" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "tag_name=${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_name=${REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build unsigned app
+        working-directory: docker_copilot_app_swift
+        env:
+          MARKETING_VERSION: ${{ steps.release_meta.outputs.app_version }}
+          DERIVED_DATA: ${{ runner.temp }}/DerivedData
+        run: |
+          set +x
+          xcodebuild build \
+            -project docker_copilot_app_swift.xcodeproj \
+            -scheme docker_copilot_app_swift \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$DERIVED_DATA" \
+            IPHONEOS_DEPLOYMENT_TARGET=17.0 \
+            MARKETING_VERSION="$MARKETING_VERSION" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=NO
+
+      - name: Package unsigned IPA
+        run: |
+          set +x
+          APP_PATH=$(find "$RUNNER_TEMP/DerivedData" -path '*Release-iphoneos/*.app' -type d | head -1)
+          [ -n "$APP_PATH" ] || { echo 'App bundle not found'; exit 1; }
+          PKG_DIR="$RUNNER_TEMP/ipa"
+          mkdir -p "$PKG_DIR/Payload"
+          cp -R "$APP_PATH" "$PKG_DIR/Payload/"
+          cd "$PKG_DIR" && zip -qr "$RUNNER_TEMP/DCPilot-unsigned.ipa" Payload
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_meta.outputs.tag_name }}
+          name: ${{ steps.release_meta.outputs.release_name }}
+          target_commitish: ${{ github.sha }}
+          draft: false
+          prerelease: false
+          files: ${{ runner.temp }}/DCPilot-unsigned.ipa
