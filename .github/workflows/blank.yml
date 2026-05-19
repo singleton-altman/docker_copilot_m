@@ -17,6 +17,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
 
     steps:
       - name: Checkout code from main repository
@@ -57,15 +59,15 @@ jobs:
 
       - name: Create or update GitHub Release
         env:
-          GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.release_meta.outputs.tag_name }}
           NAME: ${{ steps.release_meta.outputs.release_name }}
+          REPO: ${{ github.repository }}
         run: |
           set -e
           ASSET=./docker_copilot/build/app/outputs/flutter-apk/app-release.apk
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$ASSET" --clobber
-            gh release edit "$TAG" --title "$NAME"
+          if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ASSET" --clobber -R "$REPO"
+            gh release edit "$TAG" --title "$NAME" -R "$REPO"
           else
-            gh release create "$TAG" "$ASSET" --title "$NAME" --target "${{ github.sha }}"
+            gh release create "$TAG" "$ASSET" --title "$NAME" --target "${{ github.sha }}" -R "$REPO"
           fi
